@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useDisconnect, useAppKit, useAppKitAccount } from '@reown/appkit/react';
-import { Hex, parseGwei, toHex, type Address, Capabilities, zeroAddress } from 'viem';
+import { Hex, parseGwei, toHex, type Address, Capabilities, zeroAddress, parseUnits, encodeFunctionData } from 'viem';
 import {
   useChainId,
   useSendTransaction,
@@ -9,11 +9,44 @@ import {
   useCapabilities
 } from 'wagmi';
 
+import { erc20Abi, multiwrapAbi } from '../abi';
+
+const erc20Address = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+const multiwrapAddress = '0x0Ec8C4C80E4965381999C281C5a7173a9cd30cfD';
+const amount = parseUnits('5', 6); // 5 usdc
+const recipient = '0x27764f3d7075dc999e33D5F6440C779C5fe65eD5';
+const uri = '';
+
+const data1 = encodeFunctionData({
+    abi: erc20Abi,
+    functionName: 'approve',
+    args: [ multiwrapAddress, amount ]
+});
+
 // Test transaction
-const tx = {
-  to: zeroAddress as Address,
+const tx1 = {
+  to: erc20Address,
   value: parseGwei('0'),
-  data: zeroAddress as Hex,
+  data: data1
+};
+
+const tokensToWrap = [{
+    assetContract: erc20Address,
+    tokenType: 0,
+    tokenId: 5,
+    totalAmount: amount
+}];
+
+const data2 = encodeFunctionData({
+  abi: multiwrapAbi,
+  functionName: 'wrap',
+  args: [tokensToWrap, uri, recipient]
+});
+
+const tx2 = {
+  to: multiwrapAddress,
+  value: parseGwei('0'),
+  data: data2
 };
 
 interface ActionButtonListProps {
@@ -28,6 +61,7 @@ const chainIdToNetwork = {
   84532: 'base-sepolia',
   11155111: 'sepolia',
   10: 'optimism',
+  31337: 'anvil',
 };
 
 const chainIdToSponsorshipPolicyId = {
@@ -35,6 +69,7 @@ const chainIdToSponsorshipPolicyId = {
   84532: import.meta.env.VITE_BASE_SEPOLIA_SPONSORSHIP_POLICY_ID,
   11155111: import.meta.env.VITE_SEPOLIA_SPONSORSHIP_POLICY_ID,
   10: import.meta.env.VITE_OPTIMISM_SPONSORSHIP_POLICY_ID,
+  31337: import.meta.env.VITE_ANVIL_SPONSORSHIP_POLICY_ID,
 };
 
 const candideApiKey = import.meta.env.VITE_CANDIDE_APY_KEY
@@ -83,7 +118,8 @@ export const ActionButtonList = ({
     try {
       if (!capabilities) {
         // Fallback to standard sendTransactions if capabilities are not available
-        sendTransaction(tx);
+        sendTransaction(tx1);
+        sendTransaction(tx2);
         return;
       }
 
@@ -94,7 +130,7 @@ export const ActionButtonList = ({
       if (isAtomicSupported) {
         if (isPaymasterSupported) {
           sendCalls({
-            calls: [tx, tx],
+            calls: [tx1, tx2],
             // and sponsor the tx, optionally with a sponsorshipPolicyId
             capabilities: {
               paymasterService: {
@@ -110,12 +146,13 @@ export const ActionButtonList = ({
           });
         } else {
           sendCalls({
-            calls: [tx, tx],
+            calls: [tx1, tx2],
           });
         }
       } else {
         // if not, fallback to standard sendTransactions
-        sendTransaction(tx);
+        sendTransaction(tx1);
+        sendTransaction(tx2);
       }
     } catch (err) {
       sendError(`Error sending transaction:'${err}`)
