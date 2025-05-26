@@ -141,14 +141,16 @@ export function App() {
             </defs>
           </svg>
         </div>
-        <div className="font-bold uppercase">Multiwrap</div>
+        <div className="font-bold uppercase">Token Bundler</div>
         <div className="justify-end">LOGIN</div>
       </div>
 
       <WagmiProvider config={wagmiAdapter.wagmiConfig}>
         <QueryClientProvider client={queryClient}>
           <div className="flex flex-col justify-center items-center">
-            <appkit-button />
+            <div className="mb-4">
+              <appkit-button />
+            </div>
             <ActionButtonList
               sendHash={receiveHash}
               sendCapabilities={receiveCapabilities}
