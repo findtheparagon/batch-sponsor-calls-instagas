@@ -11,7 +11,6 @@ import {
   encodeFunctionData,
   getAddress,
   parseGwei,
-  toHex,
   type Address
 } from "viem";
 import {
@@ -251,12 +250,10 @@ export const ActionButtonList = ({
             // and sponsor the tx, optionally with a sponsorshipPolicyId
             capabilities: {
               paymasterService: {
-                [toHex(chainId)]: {
-                  url: paymasterUrl,
-                  optional: true,
-                  context: {
-                    sponsorshipPolicyId
-                  }
+                url: paymasterUrl,
+                optional: true,
+                context: {
+                  sponsorshipPolicyId
                 }
               }
             }
