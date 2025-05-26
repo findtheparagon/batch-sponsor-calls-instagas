@@ -9,6 +9,7 @@ import { ChangeEvent, useEffect, useState } from "react";
 import {
   Capabilities,
   encodeFunctionData,
+  getAddress,
   parseGwei,
   toHex,
   type Address
@@ -169,7 +170,7 @@ export const ActionButtonList = ({
   // Function to send transactions
   const handleSendTx = () => {
     const erc20Txs = selectedERC20Tokens.map(token => ({
-      to: token.address,
+      to: getAddress(token.address),
       value: parseGwei("0"),
       data: encodeFunctionData({
         abi: erc20Abi,
@@ -210,7 +211,7 @@ export const ActionButtonList = ({
     const tokensToWrap = [...erc20Wraped]; // TODO: add erc721 + erc1155
 
     const tx2 = {
-      to: multiwrapAddress,
+      to: getAddress(multiwrapAddress),
       value: parseGwei("0"),
       data: encodeFunctionData({
         abi: multiwrapAbi,
