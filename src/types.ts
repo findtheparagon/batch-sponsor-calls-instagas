@@ -15,3 +15,24 @@ export interface Erc721Metadata {
   attributes?: Erc721Attribute[];
   [key: string]: any;
 }
+
+export enum TokenType {
+  ERC20,
+  ERC721,
+  ERC1155
+}
+
+export type TokenToWrap = {
+  assetContract: string;
+  tokenType: TokenType;
+  tokenId: bigint;
+  totalAmount: bigint;
+};
+
+export interface NFTItem {
+  contractAddress: string;
+  tokenId: bigint;
+  name: string;
+  imageUrl?: string;
+  tokenType: "ERC721" | "ERC1155";
+}

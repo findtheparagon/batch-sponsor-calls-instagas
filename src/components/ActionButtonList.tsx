@@ -1,3 +1,4 @@
+import { NFTItem, TokenToWrap, TokenType } from "@/types";
 import {
   useAppKit,
   useAppKitAccount,
@@ -9,6 +10,8 @@ import { ChangeEvent, useEffect, useState } from "react";
 import {
   Capabilities,
   encodeFunctionData,
+  erc1155Abi,
+  erc721Abi,
   getAddress,
   parseGwei,
   type Address
@@ -25,6 +28,8 @@ import AddERC20TokenDialog from "./AddERC20TokenDialog";
 import MetadataViewer from "./MetadataViewer";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Input } from "./ui/input";
+import { AddNFTDialog } from "./AddNFTDialog";
 
 const multiwrapAddress = "0x0Ec8C4C80E4965381999C281C5a7173a9cd30cfD";
 
@@ -98,6 +103,7 @@ export const ActionButtonList = ({
   const [selectedERC20Tokens, setSelectedERC20Tokens] = useState<ERC20Meta[]>(
     []
   );
+  const [selectedNFTs, setSelectedNFTs] = useState<NFTItem[]>([]);
 
   const [formData, setFormData] = useState({
     uri: ""
@@ -105,10 +111,6 @@ export const ActionButtonList = ({
 
   const [validUri, setValidUri] = useState(true);
   const [isValid, setIsValid] = useState(false);
-
-  const handleAddERC20Token = (token: ERC20Meta) => {
-    setSelectedERC20Tokens(prev => [...prev, token]);
-  };
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -141,7 +143,7 @@ export const ActionButtonList = ({
       ethAddressRegex.test(token.address)
     );
 
-    const atLeastOne = selectedERC20Tokens.length > 0;
+    const atLeastOne = selectedERC20Tokens.length + selectedNFTs.length > 0;
 
     const isRecipientValid =
       address != undefined && ethAddressRegex.test(address);
@@ -168,6 +170,11 @@ export const ActionButtonList = ({
 
   // Function to send transactions
   const handleSendTx = () => {
+    const erc721Tokens = selectedNFTs.filter(nft => nft.tokenType == "ERC721");
+    const erc1155Tokens = selectedNFTs.filter(
+      nft => nft.tokenType == "ERC1155"
+    );
+
     const erc20Txs = selectedERC20Tokens.map(token => ({
       to: getAddress(token.address),
       value: parseGwei("0"),
@@ -178,36 +185,56 @@ export const ActionButtonList = ({
       })
     }));
 
-    // const data1 = encodeFunctionData({
-    //   abi: erc20Abi,
-    //   functionName: "approve",
-    //   args: [multiwrapAddress, formData.erc20Amount]
-    // });
+    const erc721Txs = erc721Tokens.map(token => ({
+      to: getAddress(token.contractAddress),
+      value: parseGwei("0"),
+      data: encodeFunctionData({
+        abi: erc721Abi,
+        functionName: "approve",
+        args: [multiwrapAddress, token.tokenId]
+      })
+    }));
 
-    // // Test transaction
-    // const tx1 = {
-    //   to: formData.erc20Address,
-    //   value: parseGwei("0"),
-    //   data: data1
-    // };
+    const uniqueERC1155Addresses = Array.from(
+      new Set(erc1155Tokens.map(nft => nft.contractAddress))
+    );
 
-    // const tokensToWrap = [
-    //   {
-    //     assetContract: formData.erc20Address,
-    //     tokenType: 0,
-    //     tokenId: 5,
-    //     totalAmount: formData.erc20Amount
-    //   }
-    // ];
+    const erc1155Txs = uniqueERC1155Addresses.map(contractAddress => ({
+      to: getAddress(contractAddress),
+      value: parseGwei("0"),
+      data: encodeFunctionData({
+        abi: erc1155Abi,
+        functionName: "setApprovalForAll",
+        args: [multiwrapAddress, true]
+      })
+    }));
 
     const erc20Wraped = selectedERC20Tokens.map(token => ({
       assetContract: token.address,
-      tokenType: 0,
-      tokenId: 0,
+      tokenType: TokenType.ERC20,
+      tokenId: 0n,
       totalAmount: token.rawAmount
     }));
 
-    const tokensToWrap = [...erc20Wraped]; // TODO: add erc721 + erc1155
+    const erc721Wraped = erc721Tokens.map(token => ({
+      assetContract: token.contractAddress,
+      tokenType: TokenType.ERC721,
+      tokenId: token.tokenId,
+      totalAmount: 0n
+    }));
+
+    const erc1155Wraped = erc1155Tokens.map(token => ({
+      assetContract: token.contractAddress,
+      tokenType: TokenType.ERC1155,
+      tokenId: token.tokenId,
+      totalAmount: 0n
+    }));
+
+    const tokensToWrap: TokenToWrap[] = [
+      ...erc20Wraped,
+      ...erc721Wraped,
+      ...erc1155Wraped
+    ];
 
     const tx2 = {
       to: getAddress(multiwrapAddress),
@@ -219,7 +246,7 @@ export const ActionButtonList = ({
       })
     };
 
-    const txs = [...erc20Txs, tx2];
+    const txs = [...erc20Txs, ...erc721Txs, ...erc1155Txs, tx2];
 
     // if smart capabilities are supported, send a sponsored batched transaction
     try {
@@ -305,9 +332,25 @@ export const ActionButtonList = ({
     }
   }, [callStatusData, refetchCallStatus, sendHash, sendStatus]);
 
+  const handleAddERC20Token = (token: ERC20Meta) => {
+    setSelectedERC20Tokens(prev => [...prev, token]);
+  };
+
   const handleRemoveToken = (addressToRemove: string) => {
     setSelectedERC20Tokens(prev =>
       prev.filter(token => token.address !== addressToRemove)
+    );
+  };
+
+  const handleAddNFT = (nft: NFTItem) => {
+    setSelectedNFTs(prev => [...prev, nft]);
+  };
+
+  const handleRemoveNFT = (contract: string, tokenId: BigInt) => {
+    setSelectedNFTs(prev =>
+      prev.filter(
+        nft => !(nft.contractAddress === contract && nft.tokenId === tokenId)
+      )
     );
   };
 
@@ -325,12 +368,8 @@ export const ActionButtonList = ({
     address && (
       <div className="w-full">
         <div className="flex gap-x-2 my-4 justify-center items-center">
-          <button className="btn" onClick={() => open()}>
-            Open
-          </button>
-          <button className="btn" onClick={handleDisconnect}>
-            Disconnect
-          </button>
+          <Button onClick={() => open()}>Open</Button>
+          <Button onClick={handleDisconnect}>Disconnect</Button>
         </div>
         <div className="w-full max-w-[600px] m-auto">
           <Tabs defaultValue="erc20-tokens" className="w-full p-4">
@@ -372,12 +411,12 @@ export const ActionButtonList = ({
                       </div>
 
                       <div className="ml-auto">
-                        <button
+                        <Button
                           onClick={() => handleRemoveToken(token.address)}
-                          className="text-red-500 hover:underline text-sm"
+                          className="text-red-500 rounded-full cursor-pointer"
                         >
                           <Trash2 />
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -395,7 +434,54 @@ export const ActionButtonList = ({
               </div>
             </TabsContent>
             <TabsContent value="nfts">
-              <Button>Add NFT</Button>
+              {selectedNFTs.length > 0 && (
+                <div className="grid grid-cols-2 gap-6 mt-4 p-6">
+                  {selectedNFTs.map(nft => (
+                    <div
+                      key={`${nft.contractAddress}-${nft.tokenId}`}
+                      className="border p-4 rounded-xl relative"
+                    >
+                      {nft.imageUrl && (
+                        <img
+                          src={nft.imageUrl}
+                          alt={nft.name}
+                          className="h-40 w-full object-cover rounded mb-2"
+                        />
+                      )}
+                      <p>
+                        <strong>{nft.name}</strong>
+                      </p>
+                      <p className="text-xs text-muted-foreground break-words">
+                        ID: {nft.tokenId}, {nft.tokenType}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() =>
+                          handleRemoveNFT(nft.contractAddress, nft.tokenId)
+                        }
+                        className="absolute top-5 right-5 text-red-500 rounded-full cursor-pointer"
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center px-6 py-2">
+                <div className="ml-auto">
+                  <AddNFTDialog
+                    alchemy={getAlchemyClient(chainId)}
+                    ownerAddress={address}
+                    excludedNFTs={selectedNFTs.map(nft => ({
+                      contractAddress: nft.contractAddress,
+                      tokenId: nft.tokenId
+                    }))}
+                    excludedContracts={[multiwrapAddress]}
+                    onAdd={handleAddNFT}
+                  />
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
 
@@ -404,13 +490,13 @@ export const ActionButtonList = ({
               <label className="block text-sm font-medium text-stone-700">
                 URI
               </label>
-              <input
+              <Input
                 type="text"
                 name="uri"
                 placeholder="ipfs://..."
                 value={formData.uri}
                 onChange={handleChange}
-                className={`w-full input ${validUri ? "" : "invalid"}`}
+                className={`${validUri ? "" : "invalid"}`}
               />
 
               {formData.uri && validUri && (
@@ -427,7 +513,8 @@ export const ActionButtonList = ({
           </div>
         </div>
 
-        <section className="w-full">
+        <section>
+          <h2 className="font-bold mb-4">Debug</h2>
           <p>ChainId: {chainId}</p>
           <p>Recipient: {address}</p>
           <div className="mt-4">
@@ -441,7 +528,33 @@ export const ActionButtonList = ({
               );
             })}
           </div>
-          <p>URI: {formData.uri}</p>
+          <div className="mt-4">
+            <h2>ERC721</h2>
+            {selectedNFTs
+              .filter(nft => nft.tokenType == "ERC721")
+              .map(selectedToken => {
+                return (
+                  <p>
+                    {selectedToken.contractAddress} - #{selectedToken.tokenId}
+                  </p>
+                );
+              })}
+          </div>
+          <div className="mt-4">
+            <h2>ERC1155</h2>
+            {selectedNFTs
+              .filter(nft => nft.tokenType == "ERC1155")
+              .map(selectedToken => {
+                return (
+                  <p>
+                    {selectedToken.contractAddress} - #{selectedToken.tokenId}
+                  </p>
+                );
+              })}
+          </div>
+          <div className="mt-4">
+            <p>URI: {formData.uri}</p>
+          </div>
         </section>
       </div>
     )
