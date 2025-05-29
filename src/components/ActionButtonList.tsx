@@ -160,6 +160,7 @@ export const ActionButtonList = ({
   const {
     data: hash,
     sendTransaction,
+    sendTransactionAsync,
     isPending,
     isSuccess,
     isError,
@@ -353,7 +354,7 @@ export const ActionButtonList = ({
     }
   });
 
-  const unwrapToken = (tokenId: BigInt) => {
+  const unwrapToken = async (tokenId: BigInt) => {
     const unwrapTx = {
       to: getAddress(multiwrapAddress),
       value: parseGwei("0"),
@@ -365,7 +366,7 @@ export const ActionButtonList = ({
     };
 
     try {
-      sendTransaction(unwrapTx);
+      await sendTransactionAsync(unwrapTx);
     } catch (err) {
       console.error("Transaction failed for", address, err);
     }

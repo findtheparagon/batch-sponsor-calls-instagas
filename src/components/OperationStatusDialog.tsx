@@ -3,13 +3,13 @@
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
+  DialogTitle
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { CallStatus } from "@/types";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, Loader2, XCircle } from "lucide-react";
 import { useChainId, useChains } from "wagmi";
 import { Button } from "./ui/button";
 
@@ -70,14 +70,15 @@ export function OperationStatusDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Status</DialogTitle>
-          <DialogDescription></DialogDescription>
         </DialogHeader>
         <div>
           {getStatusIcon()}
           <p className="mt-4 text-sm">{getStatusText()}</p>
 
-          {error && (
-            <p className="mt-4 text-sm text-red-600">{error.message}</p>
+          {error && status == "failure" && (
+            <ScrollArea className="h-16 mt-4 rounded-md border">
+              <p className="p-2 text-sm text-red-600">{error.message}</p>
+            </ScrollArea>
           )}
         </div>
         <DialogFooter>

@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger
@@ -159,10 +160,11 @@ const AddERC20TokenDialog = ({
                 />
               </>
             )}
-
-            <Button onClick={handleAdd} disabled={!selected || !amount}>
-              Add
-            </Button>
+            <DialogFooter>
+              <Button onClick={handleAdd} disabled={!selected || !amount}>
+                Add
+              </Button>
+            </DialogFooter>
           </>
         )}
       </DialogContent>

@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alchemy } from "alchemy-sdk";
 import { Plus } from "lucide-react";
@@ -97,44 +102,46 @@ export function AddNFTDialog({
         ) : nfts.length === 0 ? (
           <p>No NFTs available</p>
         ) : (
-          <div className="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
-            {nfts.map(nft => {
-              const isSelected = selected.some(
-                s =>
-                  s.contractAddress === nft.contractAddress &&
-                  s.tokenId === nft.tokenId
-              );
-              return (
-                <div
-                  key={`${nft.contractAddress}-${nft.tokenId}`}
-                  onClick={() => toggleSelect(nft)}
-                  className={`border p-2 rounded-lg cursor-pointer ${
-                    isSelected ? "border-stone-500 bg-stone-800" : ""
-                  }`}
-                >
-                  {nft.imageUrl && (
-                    <img
-                      src={nft.imageUrl}
-                      alt={nft.name}
-                      className="h-32 w-full object-cover rounded"
-                    />
-                  )}
-                  <div className="text-sm mt-1">
-                    <strong>{nft.name}</strong>
-                    <div className="text-xs text-muted-foreground">
-                      {nft.tokenType}
+          <>
+            <div className="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+              {nfts.map(nft => {
+                const isSelected = selected.some(
+                  s =>
+                    s.contractAddress === nft.contractAddress &&
+                    s.tokenId === nft.tokenId
+                );
+                return (
+                  <div
+                    key={`${nft.contractAddress}-${nft.tokenId}`}
+                    onClick={() => toggleSelect(nft)}
+                    className={`border p-2 rounded-lg cursor-pointer ${
+                      isSelected ? "border-stone-500 bg-stone-800" : ""
+                    }`}
+                  >
+                    {nft.imageUrl && (
+                      <img
+                        src={nft.imageUrl}
+                        alt={nft.name}
+                        className="h-32 w-full object-cover rounded"
+                      />
+                    )}
+                    <div className="text-sm mt-1">
+                      <strong>{nft.name}</strong>
+                      <div className="text-xs text-muted-foreground">
+                        {nft.tokenType}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+            <DialogFooter>
+              <Button onClick={handleSelect} disabled={selected.length == 0}>
+                Add
+              </Button>
+            </DialogFooter>
+          </>
         )}
-        <div className="flex justify-end mt-4">
-          <Button onClick={handleSelect} disabled={!selected}>
-            Add
-          </Button>
-        </div>
       </DialogContent>
     </Dialog>
   );
