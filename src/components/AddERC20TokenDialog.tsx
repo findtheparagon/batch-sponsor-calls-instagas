@@ -133,13 +133,7 @@ const AddERC20TokenDialog = ({
               </SelectTrigger>
               <SelectContent>
                 {tokens
-                  .filter(t => {
-                    console.log({
-                      excludedAddresses,
-                      contractAddress: t.address
-                    });
-                    return !excludedAddresses.includes(t.address);
-                  })
+                  .filter(t => !excludedAddresses.includes(t.address))
                   .map(token => (
                     <SelectItem key={token.address} value={token.address}>
                       {token.logo}

@@ -36,3 +36,5 @@ export interface NFTItem {
   imageUrl?: string;
   tokenType: "ERC721" | "ERC1155";
 }
+
+export type CallStatus = "pending" | "success" | "failure" | undefined;

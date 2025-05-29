@@ -1,4 +1,4 @@
-import { NFTItem, TokenToWrap, TokenType } from "@/types";
+import { CallStatus, NFTItem, TokenToWrap, TokenType } from "@/types";
 import {
   useAppKit,
   useAppKitAccount,
@@ -11,6 +11,7 @@ import {
   Capabilities,
   encodeFunctionData,
   erc1155Abi,
+  erc20Abi,
   erc721Abi,
   getAddress,
   parseGwei,
@@ -23,20 +24,22 @@ import {
   useSendCalls,
   useSendTransaction
 } from "wagmi";
-import { erc20Abi, multiwrapAbi } from "../abi";
+import { multiwrapAbi } from "../abi";
 import AddERC20TokenDialog from "./AddERC20TokenDialog";
 import MetadataViewer from "./MetadataViewer";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Input } from "./ui/input";
 import { AddNFTDialog } from "./AddNFTDialog";
+import { OperationStatusDialog } from "./OperationStatusDialog";
+import { MyWrappedTokens } from "./MyWrappedTokens";
 
 const multiwrapAddress = "0x0Ec8C4C80E4965381999C281C5a7173a9cd30cfD";
 
 interface ActionButtonListProps {
   sendHash: (hash: `0x${string}`) => void;
   sendCapabilities: (capabilities: Capabilities) => void;
-  sendStatus: (status: string | undefined) => void;
+  sendStatus: (status: CallStatus) => void;
   sendError: (error: string) => void;
 }
 
@@ -111,6 +114,17 @@ export const ActionButtonList = ({
 
   const [validUri, setValidUri] = useState(true);
   const [isValid, setIsValid] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const [transactionHash, setTransactionHash] = useState<
+    `0x${string}` | undefined
+  >();
+
+  const resetState = () => {
+    setSelectedERC20Tokens([]);
+    setSelectedNFTs([]);
+    setFormData({ uri: "" });
+  };
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -134,8 +148,24 @@ export const ActionButtonList = ({
   const { data: capabilities } = useCapabilities({
     account: address as Address
   }); // Wagmi hook to check wallet capabilities (for sponsorship)
-  const { sendCalls, data: id } = useSendCalls(); // Wagmi hook to send sponsored and batch transactions
-  const { data: hash, sendTransaction } = useSendTransaction(); // Wagmi hook to send standard transaction
+  const {
+    sendCalls,
+    data: id,
+    isPending: isCallsPending,
+    isSuccess: isCallsSuccess,
+    isError: isCallsError,
+    reset: resetCalls,
+    failureReason: failureReasonCalls
+  } = useSendCalls(); // Wagmi hook to send sponsored and batch transactions
+  const {
+    data: hash,
+    sendTransaction,
+    isPending,
+    isSuccess,
+    isError,
+    reset,
+    failureReason: failureReasonTransaction
+  } = useSendTransaction(); // Wagmi hook to send standard transaction
 
   // Validate on changes
   useEffect(() => {
@@ -156,6 +186,7 @@ export const ActionButtonList = ({
   useEffect(() => {
     if (hash) {
       sendHash(hash);
+      setTransactionHash(hash);
       console.log("Hash: ", hash);
     }
   }, [hash]);
@@ -309,7 +340,11 @@ export const ActionButtonList = ({
   };
 
   // get status of sendCalls
-  const { data: callStatusData, refetch: refetchCallStatus } = useCallsStatus({
+  const {
+    data: callStatusData,
+    refetch: refetchCallStatus,
+    failureReason: failureReasonCall
+  } = useCallsStatus({
     id: id?.id || "",
     query: {
       enabled: !!id,
@@ -318,19 +353,62 @@ export const ActionButtonList = ({
     }
   });
 
+  const unwrapToken = (tokenId: BigInt) => {
+    const unwrapTx = {
+      to: getAddress(multiwrapAddress),
+      value: parseGwei("0"),
+      data: encodeFunctionData({
+        abi: multiwrapAbi,
+        functionName: "unwrap",
+        args: [tokenId, address]
+      })
+    };
+
+    try {
+      sendTransaction(unwrapTx);
+    } catch (err) {
+      console.error("Transaction failed for", address, err);
+    }
+  };
+
+  const status: CallStatus =
+    isPending || isCallsPending
+      ? "pending"
+      : isSuccess || isCallsSuccess
+      ? "success"
+      : isError || isCallsError
+      ? "failure"
+      : undefined;
+
+  const statusForDialog: CallStatus = callStatusData?.status || status;
+  const failureReason =
+    failureReasonCall || failureReasonCalls || failureReasonTransaction;
+
   useEffect(() => {
     if (!callStatusData) return;
 
     sendStatus(callStatusData.status);
 
     if (callStatusData.status === "success") {
+      resetState();
       refetchCallStatus();
       const receipts = callStatusData.receipts;
       if (receipts && receipts.length > 0) {
         sendHash(receipts[0].transactionHash);
+        setTransactionHash(receipts[0].transactionHash);
       }
     }
   }, [callStatusData, refetchCallStatus, sendHash, sendStatus]);
+
+  useEffect(() => {
+    if (statusForDialog && !dialogOpen) {
+      setDialogOpen(true);
+    }
+    if (status === undefined) {
+      reset();
+      resetCalls();
+    }
+  }, [status, statusForDialog, reset, resetCalls]);
 
   const handleAddERC20Token = (token: ERC20Meta) => {
     setSelectedERC20Tokens(prev => [...prev, token]);
@@ -367,6 +445,13 @@ export const ActionButtonList = ({
     isConnected &&
     address && (
       <div className="w-full">
+        <OperationStatusDialog
+          status={statusForDialog}
+          open={dialogOpen}
+          error={failureReason}
+          onOpenChange={setDialogOpen}
+          transactionHash={transactionHash}
+        />
         <div className="flex gap-x-2 my-4 justify-center items-center">
           <Button onClick={() => open()}>Open</Button>
           <Button onClick={handleDisconnect}>Disconnect</Button>
@@ -511,6 +596,15 @@ export const ActionButtonList = ({
               Send tx
             </Button>
           </div>
+        </div>
+
+        <div className="w-full max-w-[600px] m-auto">
+          <MyWrappedTokens
+            alchemy={getAlchemyClient(chainId)}
+            contractAddress={multiwrapAddress}
+            ownerAddress={address}
+            unwrapToken={unwrapToken}
+          />
         </div>
 
         <section>
