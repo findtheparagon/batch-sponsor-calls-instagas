@@ -5,12 +5,15 @@ import {
   Dialog,
   DialogTrigger,
   DialogContent,
-  DialogFooter
+  DialogFooter,
+  DialogHeader,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alchemy } from "alchemy-sdk";
 import { Plus } from "lucide-react";
 import { NFTItem } from "@/types";
+import { DialogTitle } from "@radix-ui/react-dialog";
 
 export interface AddNFTDialogProps {
   alchemy: Alchemy;
@@ -18,6 +21,7 @@ export interface AddNFTDialogProps {
   excludedNFTs?: { contractAddress: string; tokenId: BigInt }[];
   excludedContracts?: string[];
   onAdd: (nft: NFTItem) => void;
+  onClick: () => void;
 }
 
 export function AddNFTDialog({
@@ -25,7 +29,8 @@ export function AddNFTDialog({
   ownerAddress,
   excludedNFTs = [],
   excludedContracts = [],
-  onAdd
+  onAdd,
+  onClick
 }: AddNFTDialogProps) {
   const [open, setOpen] = useState(false);
   const [nfts, setNfts] = useState<NFTItem[] | null>(null);
@@ -90,13 +95,18 @@ export function AddNFTDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant="outline" size="sm" onClick={onClick}>
           <Plus />
           Add NFT
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-xl">
-        <h2 className="text-xl font-bold">Add NFT</h2>
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold">Add NFT</DialogTitle>
+          <DialogDescription>
+            Select the tokens you want. Click add when you're done.
+          </DialogDescription>
+        </DialogHeader>
         {!nfts ? (
           <p>Loading NFTs...</p>
         ) : nfts.length === 0 ? (

@@ -23,23 +23,28 @@ interface MyWrappedTokensProps {
   ownerAddress: string;
   contractAddress: string;
   unwrapToken: (tokenId: BigInt) => Promise<void>;
+  onCreate: () => void;
+}
+
+interface NFTItem {
+  tokenId: BigInt;
+  name: string;
+  imageUrl?: string;
+  tokenType: string;
 }
 
 export function MyWrappedTokens({
   alchemy,
   ownerAddress,
   contractAddress,
-  unwrapToken
+  unwrapToken,
+  onCreate
 }: MyWrappedTokensProps) {
-  const [nfts, setNfts] = useState<
-    {
-      tokenId: BigInt;
-      name: string;
-      imageUrl?: string;
-      tokenType: string;
-    }[]
-  >([]);
+  const [nfts, setNfts] = useState<NFTItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [selectedTokenId, setSelectedTokenId] = useState<BigInt>();
+  const selectedNFT = nfts.find(nft => nft.tokenId === selectedTokenId);
 
   const load = async () => {
     setLoading(true);
@@ -68,83 +73,116 @@ export function MyWrappedTokens({
   }, [alchemy, ownerAddress, contractAddress]);
 
   return (
-    <div className="space-y-2 mt-4">
-      <h2 className="text-lg font-semibold">My Wrapped Tokens</h2>
+    <div className="flex h-screen">
+      <aside className="w-1/3">
+        {loading ? (
+          <p className="text-muted-foreground">Loading...</p>
+        ) : nfts.length === 0 ? (
+          <p>You don't own wrapped NFTs</p>
+        ) : (
+          <>
+            <ScrollArea className="h-full">
+              <Button onClick={load} size={"icon"}>
+                <RefreshCcw />
+              </Button>
+              <div className="grid grid-cols-1 gap-4 py-4 pr-4">
+                {nfts.map(nft => (
+                  <div
+                    key={nft.tokenId.toString()}
+                    className="flex gap-4 px-4 py-3 justify-between border rounded-lg"
+                    onClick={() => setSelectedTokenId(nft.tokenId)}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg size-[70px]"
+                        style={{
+                          backgroundImage: `url("${nft.imageUrl}");`
+                        }}
+                      >
+                        {nft.imageUrl && (
+                          <MediaViewer
+                            url={nft.imageUrl}
+                            description={nft.name}
+                          />
+                        )}
+                      </div>
+                      <div className="flex flex-1 flex-col justify-center">
+                        <p className="text-white text-base font-medium leading-normal">
+                          {nft.name}
+                        </p>
+                        <p className="text-[#9cabba] text-sm font-normal leading-normal">
+                          tokenId: {nft.tokenId.toString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size={"sm"}>Unwrap</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Are you absolutely sure?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will
+                              permanently unwrap the token #
+                              {nft.tokenId.toString()}.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={async () => {
+                                await unwrapToken(nft.tokenId);
+                                load();
+                              }}
+                            >
+                              Continue
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </>
+        )}
+      </aside>
 
-      {loading ? (
-        <p className="text-muted-foreground">Loading...</p>
-      ) : nfts.length === 0 ? (
-        <p>You don't own wrapped NFTs</p>
-      ) : (
-        <div>
-          <Button onClick={load} size={"icon"}>
-            <RefreshCcw />
-          </Button>
-          <ScrollArea className="h-96 mt-4 rounded-md border">
-            <div className="grid grid-cols-1 gap-4 py-4 px-4">
-              {nfts.map(nft => (
-                <div
-                  key={nft.tokenId.toString()}
-                  className="flex gap-4 px-4 py-3 justify-between border rounded-lg"
-                >
-                  <div className="flex items-start gap-4">
-                    <div
-                      className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg size-[70px]"
-                      style={{
-                        backgroundImage: `url("${nft.imageUrl}");`
-                      }}
-                    >
-                      {nft.imageUrl && (
-                        <MediaViewer
-                          url={nft.imageUrl}
-                          description={nft.name}
-                        />
-                      )}
-                    </div>
-                    <div className="flex flex-1 flex-col justify-center">
-                      <p className="text-white text-base font-medium leading-normal">
-                        {nft.name}
-                      </p>
-                      <p className="text-[#9cabba] text-sm font-normal leading-normal">
-                        tokenId: {nft.tokenId.toString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="shrink-0">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size={"sm"}>Unwrap</Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Are you absolutely sure?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently
-                            unwrap the token #{nft.tokenId.toString()}.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={async () => {
-                              await unwrapToken(nft.tokenId);
-                              load();
-                            }}
-                          >
-                            Continue
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              ))}
+      <main className="flex-1 p-6">
+        {selectedNFT && (
+          <>
+            <h2 className="text-xl font-semibold mb-4">{selectedNFT.name}</h2>
+            <p className="text-muted-foreground">
+              tokenId: {selectedNFT.tokenId.toString()}
+            </p>
+
+            {selectedNFT.imageUrl && (
+              <MediaViewer
+                url={selectedNFT.imageUrl}
+                description={selectedNFT.name}
+              />
+            )}
+          </>
+        )}
+
+        {!selectedNFT && nfts.length > 0 && (
+          <div className="grid place-items-center h-full">Select a NFT</div>
+        )}
+
+        {!selectedNFT && nfts.length == 0 && (
+          <div className="grid place-items-center h-full">
+            <div>
+              To create a bundle click on{" "}
+              <Button onClick={onCreate}>New bundle</Button>
             </div>
-          </ScrollArea>
-        </div>
-      )}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

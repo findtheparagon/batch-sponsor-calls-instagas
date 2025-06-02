@@ -71,53 +71,35 @@ export function App() {
   };
 
   return (
-    <div className="w-full">
-      <div className="flex h-[72px] items-center justify-between gap-8 px-4 sm:px-6">
-        <div className="flex items-center gap-4">
-          <Logo />
-        </div>
-        <div className="font-bold uppercase">Token Bundler</div>
-        <div className="justify-end">LOGIN</div>
-      </div>
-
-      <WagmiProvider config={wagmiAdapter.wagmiConfig}>
-        <QueryClientProvider client={queryClient}>
-          <div className="flex flex-col justify-center items-center">
-            <div className="mb-4">
+    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <div className="w-full">
+          <div className="flex h-[72px] items-center justify-between gap-8 px-4 sm:px-6">
+            <div className="flex items-center gap-4">
+              <Logo />
+            </div>
+            <div className="font-bold uppercase">Token Bundler</div>
+            <div className="justify-end">
               <appkit-button />
             </div>
-            <ActionButtonList
-              sendHash={receiveHash}
-              sendCapabilities={receiveCapabilities}
-              sendError={receiveError}
-              sendStatus={receiveStatus}
-            />
           </div>
-          <div className="advice">
-            <p>
-              See console for logging and errors
-              <br />
-              Go to{" "}
-              <a
-                href="https://dashboard.candide.dev/"
-                target="_blank"
-                className="link-button"
-                rel="Candide Dashboard"
-              >
-                Candide Dashboard
-              </a>{" "}
-              to get setup a gas policy.
-            </p>
-          </div>
+
+          <ActionButtonList
+            sendHash={receiveHash}
+            sendCapabilities={receiveCapabilities}
+            sendError={receiveError}
+            sendStatus={receiveStatus}
+          />
+
           <InfoList
             hash={transactionHash}
             capabilities={capabilities}
             error={error}
             status={status}
           />
-        </QueryClientProvider>
-      </WagmiProvider>
-    </div>
+        </div>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }
 

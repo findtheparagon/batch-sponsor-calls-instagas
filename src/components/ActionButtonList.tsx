@@ -5,7 +5,6 @@ import {
   useDisconnect
 } from "@reown/appkit/react";
 import { Alchemy, Network } from "alchemy-sdk";
-import { Trash2 } from "lucide-react";
 import { ChangeEvent, useEffect, useState } from "react";
 import {
   Capabilities,
@@ -25,14 +24,10 @@ import {
   useSendTransaction
 } from "wagmi";
 import { multiwrapAbi } from "../abi";
-import AddERC20TokenDialog from "./AddERC20TokenDialog";
-import MetadataViewer from "./MetadataViewer";
-import { Button } from "./ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Input } from "./ui/input";
-import { AddNFTDialog } from "./AddNFTDialog";
-import { OperationStatusDialog } from "./OperationStatusDialog";
+import { Bundler } from "./Bundler";
 import { MyWrappedTokens } from "./MyWrappedTokens";
+import { OperationStatusDialog } from "./OperationStatusDialog";
+import { Button } from "./ui/button";
 
 const multiwrapAddress = "0x0Ec8C4C80E4965381999C281C5a7173a9cd30cfD";
 
@@ -103,6 +98,8 @@ export const ActionButtonList = ({
   sendStatus,
   sendError
 }: ActionButtonListProps) => {
+  const [isCreating, setIsCreating] = useState(false);
+
   const [selectedERC20Tokens, setSelectedERC20Tokens] = useState<ERC20Meta[]>(
     []
   );
@@ -445,7 +442,7 @@ export const ActionButtonList = ({
   return (
     isConnected &&
     address && (
-      <div className="w-full">
+      <div className="flex flex-1 flex-col w-full">
         <OperationStatusDialog
           status={statusForDialog}
           open={dialogOpen}
@@ -453,204 +450,62 @@ export const ActionButtonList = ({
           onOpenChange={setDialogOpen}
           transactionHash={transactionHash}
         />
-        <div className="flex gap-x-2 my-4 justify-center items-center">
-          <Button onClick={() => open()}>Open</Button>
-          <Button onClick={handleDisconnect}>Disconnect</Button>
+        <div className="mx-4">
+          <div className="flex gap-x-2 my-4 justify-end items-center">
+            <Button onClick={() => open()}>Open</Button>
+            <Button onClick={handleDisconnect}>Disconnect</Button>
+          </div>
         </div>
-        <div className="w-full max-w-[600px] m-auto">
-          <Tabs defaultValue="erc20-tokens" className="w-full p-4">
-            <div className="flex items-center px-4 py-2">
-              <h1 className="text-xl font-bold">Tokens</h1>
-              <TabsList className="ml-auto">
-                <TabsTrigger
-                  value="erc20-tokens"
-                  className="text-zinc-600 dark:text-zinc-200"
+
+        <div className="border rounded-lg mx-4">
+          {isCreating ? (
+            <>
+              <div className="flex justify-between items-center border-b p-4 mb-4">
+                <h1 className="text-xl font-bold">New Bundle</h1>
+                <Button
+                  onClick={() => setIsCreating(false)}
+                  variant={"destructive"}
                 >
-                  ERC20 Tokens
-                </TabsTrigger>
-                <TabsTrigger
-                  value="nfts"
-                  className="text-zinc-600 dark:text-zinc-200"
-                >
-                  NFTs (ERC721 & ERC1155)
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="erc20-tokens">
-              {selectedERC20Tokens.length > 0 && (
-                <div className="p-6 pt-0 grid gap-6">
-                  {selectedERC20Tokens.map((token, idx) => (
-                    <div
-                      key={`${token.address}-${idx}`}
-                      className="flex w-full flex-col gap-1 border rounded-2xl p-4"
-                    >
-                      <div>
-                        <div className="flex items-center">
-                          <div className="flex items-center gap-2">
-                            <div className="font-semibold">{token.name}</div>
-                          </div>
-                          <div className="ml-auto text-xs text-foreground">
-                            {token.symbol}
-                          </div>
-                        </div>
-                        <p className="">{token.amount}</p>
-                      </div>
-
-                      <div className="ml-auto">
-                        <Button
-                          onClick={() => handleRemoveToken(token.address)}
-                          className="text-red-500 rounded-full cursor-pointer"
-                        >
-                          <Trash2 />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center px-6 py-2">
-                <div className="ml-auto">
-                  <AddERC20TokenDialog
-                    address={address}
-                    alchemy={getAlchemyClient(chainId)}
-                    excludedAddresses={selectedERC20Tokens.map(t => t.address)}
-                    onAdd={handleAddERC20Token}
-                  />
-                </div>
+                  Cancel
+                </Button>
               </div>
-            </TabsContent>
-            <TabsContent value="nfts">
-              {selectedNFTs.length > 0 && (
-                <div className="grid grid-cols-2 gap-6 mt-4 p-6">
-                  {selectedNFTs.map(nft => (
-                    <div
-                      key={`${nft.contractAddress}-${nft.tokenId}`}
-                      className="border p-4 rounded-xl relative"
-                    >
-                      {nft.imageUrl && (
-                        <img
-                          src={nft.imageUrl}
-                          alt={nft.name}
-                          className="h-40 w-full object-cover rounded mb-2"
-                        />
-                      )}
-                      <p>
-                        <strong>{nft.name}</strong>
-                      </p>
-                      <p className="text-xs text-muted-foreground break-words">
-                        ID: {nft.tokenId}, {nft.tokenType}
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() =>
-                          handleRemoveNFT(nft.contractAddress, nft.tokenId)
-                        }
-                        className="absolute top-5 right-5 text-red-500 rounded-full cursor-pointer"
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center px-6 py-2">
-                <div className="ml-auto">
-                  <AddNFTDialog
-                    alchemy={getAlchemyClient(chainId)}
-                    ownerAddress={address}
-                    excludedNFTs={selectedNFTs.map(nft => ({
-                      contractAddress: nft.contractAddress,
-                      tokenId: nft.tokenId
-                    }))}
-                    excludedContracts={[multiwrapAddress]}
-                    onAdd={handleAddNFT}
-                  />
-                </div>
+              <div className="px-4">
+                <Bundler
+                  multiwrapAddress={multiwrapAddress}
+                  address={address}
+                  alchemy={getAlchemyClient(chainId)}
+                  selectedERC20Tokens={selectedERC20Tokens}
+                  selectedNFTs={selectedNFTs}
+                  formData={formData}
+                  validUri={validUri}
+                  isValid={isValid}
+                  onUriChange={handleChange}
+                  onSendTx={handleSendTx}
+                  onAddERC20Token={handleAddERC20Token}
+                  onRemoveERC20Token={handleRemoveToken}
+                  onAddNFT={handleAddNFT}
+                  onRemoveNFT={handleRemoveNFT}
+                />
               </div>
-            </TabsContent>
-          </Tabs>
-
-          <div className="px-8">
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-stone-700">
-                URI
-              </label>
-              <Input
-                type="text"
-                name="uri"
-                placeholder="ipfs://..."
-                value={formData.uri}
-                onChange={handleChange}
-                className={`${validUri ? "" : "invalid"}`}
-              />
-
-              {formData.uri && validUri && (
-                <MetadataViewer uri={formData.uri} />
-              )}
-            </div>
-            <Button
-              className="cursor-pointer"
-              disabled={!isValid}
-              onClick={handleSendTx}
-            >
-              Send tx
-            </Button>
-          </div>
+            </>
+          ) : (
+            <>
+              <div className="flex justify-between items-center border-b p-4 mb-4">
+                <h1 className="text-xl font-bold">My Tokens</h1>
+                <Button onClick={() => setIsCreating(true)}>New bundle</Button>
+              </div>
+              <div className="px-4">
+                <MyWrappedTokens
+                  alchemy={getAlchemyClient(chainId)}
+                  contractAddress={multiwrapAddress}
+                  ownerAddress={address}
+                  unwrapToken={unwrapToken}
+                  onCreate={() => setIsCreating(true)}
+                />
+              </div>
+            </>
+          )}
         </div>
-
-        <div className="w-full max-w-[600px] m-auto">
-          <MyWrappedTokens
-            alchemy={getAlchemyClient(chainId)}
-            contractAddress={multiwrapAddress}
-            ownerAddress={address}
-            unwrapToken={unwrapToken}
-          />
-        </div>
-
-        <section>
-          <h2 className="font-bold mb-4">Debug</h2>
-          <p>ChainId: {chainId}</p>
-          <p>Recipient: {address}</p>
-          <div className="mt-4">
-            <h2>ERC20</h2>
-            {selectedERC20Tokens.map(selectedToken => {
-              return (
-                <p>
-                  {selectedToken.address} - {selectedToken.amount} (
-                  {selectedToken.rawAmount})
-                </p>
-              );
-            })}
-          </div>
-          <div className="mt-4">
-            <h2>ERC721</h2>
-            {selectedNFTs
-              .filter(nft => nft.tokenType == "ERC721")
-              .map(selectedToken => {
-                return (
-                  <p>
-                    {selectedToken.contractAddress} - #{selectedToken.tokenId}
-                  </p>
-                );
-              })}
-          </div>
-          <div className="mt-4">
-            <h2>ERC1155</h2>
-            {selectedNFTs
-              .filter(nft => nft.tokenType == "ERC1155")
-              .map(selectedToken => {
-                return (
-                  <p>
-                    {selectedToken.contractAddress} - #{selectedToken.tokenId}
-                  </p>
-                );
-              })}
-          </div>
-          <div className="mt-4">
-            <p>URI: {formData.uri}</p>
-          </div>
-        </section>
       </div>
     )
   );

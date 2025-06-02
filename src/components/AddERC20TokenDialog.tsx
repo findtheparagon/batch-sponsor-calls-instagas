@@ -45,13 +45,15 @@ type Props = {
     logo: string | null;
     rawAmount: bigint;
   }) => void;
+  onClick: () => void;
 };
 
 const AddERC20TokenDialog = ({
   alchemy,
   address,
   excludedAddresses = [],
-  onAdd
+  onAdd,
+  onClick
 }: Props) => {
   const [open, setOpen] = useState(false);
   const [tokens, setTokens] = useState<EnrichedToken[] | null>(null);
@@ -112,7 +114,7 @@ const AddERC20TokenDialog = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant="outline" size="sm" onClick={onClick}>
           <Plus />
           Add ERC20 Token
         </Button>
