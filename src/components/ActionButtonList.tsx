@@ -379,6 +379,7 @@ export const ActionButtonList = ({}: ActionButtonListProps) => {
       if (receipts && receipts.length > 0) {
         //sendHash(receipts[0].transactionHash);
         setTransactionHash(receipts[0].transactionHash);
+        setIsCreating(false);
       }
     }
   }, [callStatusData, refetchCallStatus]);
@@ -446,7 +447,7 @@ export const ActionButtonList = ({}: ActionButtonListProps) => {
           {isCreating ? (
             <>
               <div className="flex justify-between items-center border-b p-4 mb-4">
-                <h1 className="text-xl font-bold">New Bundle</h1>
+                <h1 className="text-xl font-bold">New STP</h1>
                 <Button
                   onClick={() => setIsCreating(false)}
                   variant={"destructive"}
