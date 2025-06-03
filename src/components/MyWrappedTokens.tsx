@@ -20,6 +20,8 @@ import {
 import { CallStatus, TokenType } from "@/types";
 import { usePublicClient } from "wagmi";
 import { multiwrapAbi } from "@/abi";
+import { erc1155Abi, erc20Abi, erc721Abi, formatUnits } from "viem";
+import { Badge } from "@/components/ui/badge";
 
 interface MyWrappedTokensProps {
   alchemy: Alchemy;
@@ -44,6 +46,82 @@ interface WrappedContentsType {
   totalAmount: bigint;
 }
 
+type TokenMetadata =
+  | { type: "ERC20"; name: string; symbol: string; decimals: number }
+  | { type: "ERC721"; name: string; symbol: string }
+  | { type: "ERC1155"; uri: string };
+
+const strategies: Record<
+  TokenType,
+  (
+    client: ReturnType<typeof usePublicClient>,
+    address: `0x${string}`,
+    tokenId?: bigint
+  ) => Promise<TokenMetadata>
+> = {
+  [TokenType.ERC20]: async (client, address) => {
+    const [name, symbol, decimals] = await Promise.all([
+      client!.readContract({ address, abi: erc20Abi, functionName: "name" }),
+      client!.readContract({ address, abi: erc20Abi, functionName: "symbol" }),
+      client!.readContract({ address, abi: erc20Abi, functionName: "decimals" })
+    ]);
+    return { type: "ERC20", name, symbol, decimals };
+  },
+
+  [TokenType.ERC721]: async (client, address) => {
+    const [name, symbol] = await Promise.all([
+      client!.readContract({ address, abi: erc721Abi, functionName: "name" }),
+      client!.readContract({ address, abi: erc721Abi, functionName: "symbol" })
+    ]);
+    return { type: "ERC721", name, symbol };
+  },
+
+  [TokenType.ERC1155]: async (client, address, tokenId) => {
+    if (tokenId === undefined)
+      throw new Error("tokenId es requerido para ERC1155");
+    const uri = await client!.readContract({
+      address,
+      abi: erc1155Abi,
+      functionName: "uri",
+      args: [tokenId]
+    });
+    return { type: "ERC1155", uri };
+  }
+};
+
+const tokenMetadataCache = new Map<string, TokenMetadata>();
+
+async function fetchTokenMetadata(
+  publicClient: ReturnType<typeof usePublicClient>,
+  contractAddress: `0x${string}`,
+  type: TokenType,
+  tokenId?: bigint
+): Promise<TokenMetadata> {
+  const client = publicClient;
+
+  const cacheKey =
+    type === TokenType.ERC1155 && tokenId
+      ? `${contractAddress.toLowerCase()}-${tokenId.toString()}`
+      : contractAddress.toLowerCase();
+
+  const cached = tokenMetadataCache.get(cacheKey);
+  if (cached) return cached;
+
+  const strategy = strategies[type];
+  const metadata = await strategy(client, contractAddress, tokenId);
+
+  tokenMetadataCache.set(cacheKey, metadata);
+  return metadata;
+}
+
+type WrappedContentWithMetadata = {
+  contractAddress: `0x${string}`;
+  tokenId: bigint;
+  totalAmount: bigint;
+  tokenType: TokenType;
+  metadata: TokenMetadata;
+};
+
 export function MyWrappedTokens({
   alchemy,
   ownerAddress,
@@ -62,8 +140,8 @@ export function MyWrappedTokens({
   const [selectedTokenId, setSelectedTokenId] = useState<BigInt>();
   const selectedNFT = nfts.find(nft => nft.tokenId === selectedTokenId);
 
-  const [wrappedContents, setWrappedContents] =
-    useState<WrappedContentsType[]>();
+  const [tokenMetadata, setTokenMetada] =
+    useState<WrappedContentWithMetadata[]>();
 
   const fetchWrappedContents = async (tokenId: BigInt) => {
     const result = (await publicClient.readContract({
@@ -75,6 +153,33 @@ export function MyWrappedTokens({
 
     return result; // contiene { erc20Tokens, erc721Tokens, erc1155Tokens }
   };
+
+  async function enrichWrappedContents(
+    contents: WrappedContentsType[]
+  ): Promise<WrappedContentWithMetadata[]> {
+    const results = await Promise.all(
+      contents.map(async item => {
+        const tokenType = Number(item.tokenType) as TokenType;
+
+        const metadata = await fetchTokenMetadata(
+          publicClient,
+          item.assetContract,
+          tokenType,
+          tokenType === TokenType.ERC1155 ? item.tokenId : undefined
+        );
+
+        return {
+          contractAddress: item.assetContract,
+          tokenId: item.tokenId,
+          totalAmount: item.totalAmount,
+          tokenType,
+          metadata
+        };
+      })
+    );
+
+    return results;
+  }
 
   const load = async () => {
     setLoading(true);
@@ -105,7 +210,8 @@ export function MyWrappedTokens({
   useEffect(() => {
     if (selectedTokenId) {
       fetchWrappedContents(selectedTokenId)
-        .then(setWrappedContents)
+        .then(enrichWrappedContents)
+        .then(setTokenMetada)
         .catch(e => console.error(e));
     }
   }, [selectedTokenId]);
@@ -140,7 +246,7 @@ export function MyWrappedTokens({
                     key={nft.tokenId.toString()}
                     className="flex gap-4 px-4 py-3 justify-between border rounded-lg cursor-pointer"
                     onClick={() => {
-                      setWrappedContents(undefined);
+                      setTokenMetada(undefined);
                       setSelectedTokenId(nft.tokenId);
                     }}
                   >
@@ -220,17 +326,38 @@ export function MyWrappedTokens({
                 />
               )}
             </div>
-            {wrappedContents && (
+            {tokenMetadata && (
               <div>
-                {wrappedContents.map(wrappedContent => (
-                  <div className="border rounded-lg my-2 p-2">
-                    <i>{wrappedContent.assetContract}</i>
-                    <div>{TokenType[Number(wrappedContent.tokenType)]}</div>
-                    {wrappedContent.tokenType != BigInt(TokenType.ERC20) && (
-                      <span>#{wrappedContent.tokenId}</span>
+                {tokenMetadata.map(tokenWithMetadata => (
+                  <div className="border rounded-lg my-2 p-2 grid gap-y-2">
+                    <i>{tokenWithMetadata.contractAddress}</i>
+                    <Badge variant={"secondary"}>
+                      {TokenType[Number(tokenWithMetadata.tokenType)]}
+                    </Badge>
+                    {tokenWithMetadata.metadata.type == "ERC20" && (
+                      <div>
+                        <span>{tokenWithMetadata.metadata.name}</span>{" "}
+                        <span>({tokenWithMetadata.metadata.symbol})</span>{" "}
+                        <span>
+                          {formatUnits(
+                            tokenWithMetadata.totalAmount,
+                            tokenWithMetadata.metadata.decimals
+                          )}
+                        </span>
+                      </div>
                     )}
-                    {wrappedContent.tokenType == BigInt(TokenType.ERC20) && (
-                      <span>{wrappedContent.totalAmount}</span>
+                    {tokenWithMetadata.metadata.type == "ERC721" && (
+                      <div>
+                        <span>#{tokenWithMetadata.tokenId}</span> -
+                        <span>{tokenWithMetadata.metadata.name}</span> -
+                        <span>({tokenWithMetadata.metadata.symbol})</span>
+                      </div>
+                    )}
+                    {tokenWithMetadata.metadata.type == "ERC1155" && (
+                      <div>
+                        <span>#{tokenWithMetadata.tokenId}</span> -
+                        <span>{tokenWithMetadata.metadata.uri}</span>
+                      </div>
                     )}
                   </div>
                 ))}
