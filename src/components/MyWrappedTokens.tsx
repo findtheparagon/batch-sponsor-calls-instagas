@@ -17,13 +17,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
+import { CallStatus, TokenType } from "@/types";
+import { usePublicClient } from "wagmi";
+import { multiwrapAbi } from "@/abi";
 
 interface MyWrappedTokensProps {
   alchemy: Alchemy;
   ownerAddress: string;
-  contractAddress: string;
+  contractAddress: `0x${string}`;
   unwrapToken: (tokenId: BigInt) => Promise<void>;
   onCreate: () => void;
+  status: CallStatus;
 }
 
 interface NFTItem {
@@ -33,18 +37,44 @@ interface NFTItem {
   tokenType: string;
 }
 
+interface WrappedContentsType {
+  assetContract: `0x${string}`;
+  tokenId: bigint;
+  tokenType: bigint;
+  totalAmount: bigint;
+}
+
 export function MyWrappedTokens({
   alchemy,
   ownerAddress,
   contractAddress,
   unwrapToken,
-  onCreate
+  onCreate,
+  status
 }: MyWrappedTokensProps) {
+  const publicClient = usePublicClient()!;
+
   const [nfts, setNfts] = useState<NFTItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTokenIdToUnwrap, setSelectedTokenIdToUnwrap] =
+    useState<BigInt>();
 
   const [selectedTokenId, setSelectedTokenId] = useState<BigInt>();
   const selectedNFT = nfts.find(nft => nft.tokenId === selectedTokenId);
+
+  const [wrappedContents, setWrappedContents] =
+    useState<WrappedContentsType[]>();
+
+  const fetchWrappedContents = async (tokenId: BigInt) => {
+    const result = (await publicClient.readContract({
+      address: contractAddress,
+      abi: multiwrapAbi,
+      functionName: "getWrappedContents",
+      args: [tokenId]
+    })) as WrappedContentsType[];
+
+    return result; // contiene { erc20Tokens, erc721Tokens, erc1155Tokens }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -72,25 +102,47 @@ export function MyWrappedTokens({
     load();
   }, [alchemy, ownerAddress, contractAddress]);
 
+  useEffect(() => {
+    if (selectedTokenId) {
+      fetchWrappedContents(selectedTokenId)
+        .then(setWrappedContents)
+        .catch(e => console.error(e));
+    }
+  }, [selectedTokenId]);
+
+  const handleRemoveToken = (tokenId: BigInt) => {
+    setNfts(prev => prev.filter(nft => nft.tokenId !== tokenId));
+  };
+
+  useEffect(() => {
+    if (status == "success" && selectedTokenIdToUnwrap) {
+      handleRemoveToken(selectedTokenIdToUnwrap);
+      setSelectedTokenIdToUnwrap(undefined);
+    }
+  }, [status, selectedTokenIdToUnwrap]);
+
   return (
-    <div className="flex h-screen">
+    <div className="flex">
       <aside className="w-1/3">
         {loading ? (
-          <p className="text-muted-foreground">Loading...</p>
-        ) : nfts.length === 0 ? (
-          <p>You don't own wrapped NFTs</p>
+          <div className="grid place-items-center h-fit">
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
         ) : (
           <>
-            <ScrollArea className="h-full">
-              <Button onClick={load} size={"icon"}>
-                <RefreshCcw />
-              </Button>
+            <ScrollArea className="h-[calc(100vh-160px)] w-full">
               <div className="grid grid-cols-1 gap-4 py-4 pr-4">
+                <Button onClick={load} size={"icon"}>
+                  <RefreshCcw />
+                </Button>
                 {nfts.map(nft => (
                   <div
                     key={nft.tokenId.toString()}
-                    className="flex gap-4 px-4 py-3 justify-between border rounded-lg"
-                    onClick={() => setSelectedTokenId(nft.tokenId)}
+                    className="flex gap-4 px-4 py-3 justify-between border rounded-lg cursor-pointer"
+                    onClick={() => {
+                      setWrappedContents(undefined);
+                      setSelectedTokenId(nft.tokenId);
+                    }}
                   >
                     <div className="flex items-start gap-4">
                       <div
@@ -135,8 +187,8 @@ export function MyWrappedTokens({
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={async () => {
+                                setSelectedTokenIdToUnwrap(nft.tokenId);
                                 await unwrapToken(nft.tokenId);
-                                load();
                               }}
                             >
                               Continue
@@ -153,32 +205,49 @@ export function MyWrappedTokens({
         )}
       </aside>
 
-      <main className="flex-1 p-6">
+      <main className="flex-1 border-l p-6">
         {selectedNFT && (
           <>
             <h2 className="text-xl font-semibold mb-4">{selectedNFT.name}</h2>
             <p className="text-muted-foreground">
               tokenId: {selectedNFT.tokenId.toString()}
             </p>
-
-            {selectedNFT.imageUrl && (
-              <MediaViewer
-                url={selectedNFT.imageUrl}
-                description={selectedNFT.name}
-              />
+            <div className="w-1/2">
+              {selectedNFT.imageUrl && (
+                <MediaViewer
+                  url={selectedNFT.imageUrl}
+                  description={selectedNFT.name}
+                />
+              )}
+            </div>
+            {wrappedContents && (
+              <div>
+                {wrappedContents.map(wrappedContent => (
+                  <div className="border rounded-lg my-2 p-2">
+                    <i>{wrappedContent.assetContract}</i>
+                    <div>{TokenType[Number(wrappedContent.tokenType)]}</div>
+                    {wrappedContent.tokenType != BigInt(TokenType.ERC20) && (
+                      <span>#{wrappedContent.tokenId}</span>
+                    )}
+                    {wrappedContent.tokenType == BigInt(TokenType.ERC20) && (
+                      <span>{wrappedContent.totalAmount}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </>
         )}
 
-        {!selectedNFT && nfts.length > 0 && (
-          <div className="grid place-items-center h-full">Select a NFT</div>
+        {!selectedNFT && !loading && nfts.length > 0 && (
+          <div className="grid place-items-center ">Select a NFT</div>
         )}
 
-        {!selectedNFT && nfts.length == 0 && (
-          <div className="grid place-items-center h-full">
+        {!selectedNFT && !loading && nfts.length == 0 && (
+          <div className="grid place-items-center h-max">
             <div>
               To create a bundle click on{" "}
-              <Button onClick={onCreate}>New bundle</Button>
+              <Button onClick={onCreate}>New STP</Button>
             </div>
           </div>
         )}

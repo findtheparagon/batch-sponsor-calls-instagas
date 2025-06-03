@@ -1,13 +1,8 @@
 import { CallStatus, NFTItem, TokenToWrap, TokenType } from "@/types";
-import {
-  useAppKit,
-  useAppKitAccount,
-  useDisconnect
-} from "@reown/appkit/react";
+import { useAppKitAccount } from "@reown/appkit/react";
 import { Alchemy, Network } from "alchemy-sdk";
 import { ChangeEvent, useEffect, useState } from "react";
 import {
-  Capabilities,
   encodeFunctionData,
   erc1155Abi,
   erc20Abi,
@@ -31,12 +26,7 @@ import { Button } from "./ui/button";
 
 const multiwrapAddress = "0x0Ec8C4C80E4965381999C281C5a7173a9cd30cfD";
 
-interface ActionButtonListProps {
-  sendHash: (hash: `0x${string}`) => void;
-  sendCapabilities: (capabilities: Capabilities) => void;
-  sendStatus: (status: CallStatus) => void;
-  sendError: (error: string) => void;
-}
+interface ActionButtonListProps {}
 
 const chainIdToNetwork = {
   1: "ethereum",
@@ -92,12 +82,7 @@ type ERC20Meta = {
 const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
 const uriRegex = /^(https?:\/\/|ipfs:\/\/)[^\s]+$/;
 
-export const ActionButtonList = ({
-  sendHash,
-  sendCapabilities,
-  sendStatus,
-  sendError
-}: ActionButtonListProps) => {
+export const ActionButtonList = ({}: ActionButtonListProps) => {
   const [isCreating, setIsCreating] = useState(false);
 
   const [selectedERC20Tokens, setSelectedERC20Tokens] = useState<ERC20Meta[]>(
@@ -138,8 +123,8 @@ export const ActionButtonList = ({
   const sponsorshipPolicyId = chainIdToSponsorshipPolicyId[chainId];
   const paymasterUrl = `https://api.candide.dev/paymaster/${candidePaymasterVersion}/${chainIdToNetwork[chainId]}/${candideApiKey}`;
 
-  const { disconnect } = useDisconnect(); // AppKit hook to disconnect
-  const { open } = useAppKit(); // AppKit hook to open the modal
+  // const { disconnect } = useDisconnect(); // AppKit hook to disconnect
+  // const { open } = useAppKit(); // AppKit hook to open the modal
   const { address, isConnected } = useAppKitAccount(); // AppKit hook to get the address and check if the user is connected
 
   const { data: capabilities } = useCapabilities({
@@ -183,7 +168,7 @@ export const ActionButtonList = ({
 
   useEffect(() => {
     if (hash) {
-      sendHash(hash);
+      //sendHash(hash);
       setTransactionHash(hash);
       console.log("Hash: ", hash);
     }
@@ -192,7 +177,7 @@ export const ActionButtonList = ({
   // Check if capabilities are available
   useEffect(() => {
     if (capabilities && address && chainId) {
-      sendCapabilities(capabilities);
+      //sendCapabilities(capabilities);
       console.log("capabilities: ", capabilities);
     }
   }, [capabilities, address, chainId]);
@@ -332,7 +317,7 @@ export const ActionButtonList = ({
         }
       }
     } catch (err) {
-      sendError(`Error sending transaction:'${err}`);
+      //sendError(`Error sending transaction:'${err}`);
       console.log("Error sending transaction:", err);
     }
   };
@@ -385,18 +370,18 @@ export const ActionButtonList = ({
   useEffect(() => {
     if (!callStatusData) return;
 
-    sendStatus(callStatusData.status);
+    //sendStatus(callStatusData.status);
 
     if (callStatusData.status === "success") {
       resetState();
       refetchCallStatus();
       const receipts = callStatusData.receipts;
       if (receipts && receipts.length > 0) {
-        sendHash(receipts[0].transactionHash);
+        //sendHash(receipts[0].transactionHash);
         setTransactionHash(receipts[0].transactionHash);
       }
     }
-  }, [callStatusData, refetchCallStatus, sendHash, sendStatus]);
+  }, [callStatusData, refetchCallStatus]);
 
   useEffect(() => {
     if (statusForDialog && !dialogOpen) {
@@ -430,19 +415,19 @@ export const ActionButtonList = ({
     );
   };
 
-  const handleDisconnect = async () => {
-    try {
-      await disconnect();
-    } catch (error) {
-      sendError(`Error sending transaction:'${error}`);
-      console.error("Failed to disconnect:", error);
-    }
-  };
+  // const handleDisconnect = async () => {
+  //   try {
+  //     await disconnect();
+  //   } catch (error) {
+  //     sendError(`Error sending transaction:'${error}`);
+  //     console.error("Failed to disconnect:", error);
+  //   }
+  // };
 
   return (
     isConnected &&
     address && (
-      <div className="flex flex-1 flex-col w-full">
+      <div className="flex-1 w-full">
         <OperationStatusDialog
           status={statusForDialog}
           open={dialogOpen}
@@ -450,12 +435,12 @@ export const ActionButtonList = ({
           onOpenChange={setDialogOpen}
           transactionHash={transactionHash}
         />
-        <div className="mx-4">
+        {/* <div className="mx-4">
           <div className="flex gap-x-2 my-4 justify-end items-center">
             <Button onClick={() => open()}>Open</Button>
             <Button onClick={handleDisconnect}>Disconnect</Button>
           </div>
-        </div>
+        </div> */}
 
         <div className="border rounded-lg mx-4">
           {isCreating ? (
@@ -490,9 +475,9 @@ export const ActionButtonList = ({
             </>
           ) : (
             <>
-              <div className="flex justify-between items-center border-b p-4 mb-4">
-                <h1 className="text-xl font-bold">My Tokens</h1>
-                <Button onClick={() => setIsCreating(true)}>New bundle</Button>
+              <div className="flex justify-between items-center border-b p-4">
+                <h1 className="text-xl font-bold">My Stp's</h1>
+                <Button onClick={() => setIsCreating(true)}>New STP</Button>
               </div>
               <div className="px-4">
                 <MyWrappedTokens
@@ -500,6 +485,7 @@ export const ActionButtonList = ({
                   contractAddress={multiwrapAddress}
                   ownerAddress={address}
                   unwrapToken={unwrapToken}
+                  status={statusForDialog}
                   onCreate={() => setIsCreating(true)}
                 />
               </div>

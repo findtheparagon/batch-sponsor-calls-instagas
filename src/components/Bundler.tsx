@@ -138,7 +138,7 @@ export const Bundler = ({
   };
 
   return (
-    <div>
+    <div className="mb-4">
       <Tabs value={selectedTab} onValueChange={onTabChange}>
         <div className="flex items-center justify-between mb-4">
           <TabsList>
@@ -221,9 +221,8 @@ export const Bundler = ({
         </Button>
       </div>
 
-      <div className="bg-primary-foreground my-4 p-4 rounded-lg">
+      {/* <div className="bg-primary-foreground my-4 p-4 rounded-lg">
         <h2 className="font-bold mb-4">Debug</h2>
-        {/* <p>ChainId: {chainId}</p> */}
         <p>Recipient: {address}</p>
         <div className="mt-4">
           <h2>ERC20</h2>
@@ -263,7 +262,7 @@ export const Bundler = ({
         <div className="mt-4">
           <p>URI: {formData.uri}</p>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };
